@@ -1,0 +1,34 @@
+// Script to clear all localStorage data for the CBT app
+console.log('🧹 Clearing all CBT localStorage data...');
+
+const LS_KEYS = {
+  EXAMS: "cbt_exams_v1",
+  QUESTIONS: "cbt_questions_v1", 
+  RESULTS: "cbt_results_v1",
+  USERS: "cbt_users_v1",
+  STUDENT_REGISTRATIONS: "cbt_student_registrations_v1",
+  SHARED_DATA: "cbt_shared_data_v1",
+  ACTIVE_EXAM: "cbt_active_exam_v1"
+};
+
+// Clear all CBT-related localStorage items
+Object.values(LS_KEYS).forEach(key => {
+  localStorage.removeItem(key);
+  console.log(`✅ Cleared: ${key}`);
+});
+
+// Also clear any exam-specific question storage
+for (let i = 0; i < localStorage.length; i++) {
+  const key = localStorage.key(i);
+  if (key && key.startsWith('cbt_questions_')) {
+    localStorage.removeItem(key);
+    console.log(`✅ Cleared exam questions: ${key}`);
+  }
+}
+
+// Clear logged in user
+localStorage.removeItem('cbt_logged_in_user');
+console.log('✅ Cleared logged in user');
+
+console.log('🎉 All CBT localStorage data cleared!');
+console.log('📊 Remaining localStorage items:', localStorage.length); 

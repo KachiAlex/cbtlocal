@@ -1,0 +1,104 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 270 100% 40%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 270 100% 95%;
+    --secondary-foreground: 270 100% 40%;
+
+    --muted: 270 20% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 270 100% 95%;
+    --accent-foreground: 270 100% 40%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 270 20% 90%;
+    --input: 270 20% 90%;
+    --ring: 270 100% 40%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 270 100% 40%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 270 100% 95%;
+    --sidebar-accent-foreground: 270 100% 40%;
+    --sidebar-border: 270 20% 90%;
+    --sidebar-ring: 270 100% 40%;
+  }
+
+  .dark {
+    --background: 270 20% 5%;
+    --foreground: 0 0% 98%;
+
+    --card: 270 20% 8%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 270 20% 8%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 270 100% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 270 20% 15%;
+    --secondary-foreground: 270 100% 80%;
+
+    --muted: 270 20% 15%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 270 20% 15%;
+    --accent-foreground: 270 100% 80%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 270 20% 20%;
+    --input: 270 20% 20%;
+    --ring: 270 100% 60%;
+    
+    --sidebar-background: 270 20% 8%;
+    --sidebar-foreground: 270 100% 80%;
+    --sidebar-primary: 270 100% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 270 20% 15%;
+    --sidebar-accent-foreground: 270 100% 80%;
+    --sidebar-border: 270 20% 20%;
+    --sidebar-ring: 270 100% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Custom royal purple gradients */
+.gradient-royal {
+  background: linear-gradient(135deg, #6B46C1 0%, #8B5CF6 100%);
+}
+
+.gradient-royal-light {
+  background: linear-gradient(135deg, #EDE9FE 0%, #F3F4F6 100%);
+}
