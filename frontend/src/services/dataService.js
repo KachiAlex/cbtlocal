@@ -1,7 +1,7 @@
 
 
-// Configuration - Cloud Database Enabled (but with localStorage fallback for admin)
-const USE_API = process.env.REACT_APP_USE_API === 'true' || process.env.NODE_ENV === 'production';
+// Configuration - Local Database for CBTlocal
+const USE_API = process.env.REACT_APP_USE_API === 'true'; // Controlled via environment variable
 const API_BASE = process.env.REACT_APP_API_URL || 'https://cbt-rew7.onrender.com';
 
 // LocalStorage keys
@@ -43,9 +43,51 @@ const setToLS = (key, data) => {
 
 // Initialize localStorage with fallback data if empty
 const initializeLocalStorage = () => {
-  // Completely disabled fallback data initialization
-  // This ensures a truly clean start when database is cleared
-  console.log('🚫 Fallback data initialization disabled - keeping localStorage clean');
+  console.log('🔧 Initializing localStorage...');
+  
+  // Check if admin user exists, create if not
+  const users = getFromLS(LS_KEYS.USERS) || [];
+  const adminExists = users.some(user => user.username === 'admin' && user.role === 'admin');
+  const studentExists = users.some(user => user.username === 'student1' && user.role === 'student');
+  
+  if (!adminExists) {
+    console.log('👤 Creating default admin user in localStorage...');
+    const defaultAdmin = {
+      username: "admin",
+      password: "admin123",
+      role: "admin",
+      fullName: "System Administrator",
+      email: "admin@healthschool.com",
+      createdAt: new Date().toISOString(),
+      isDefaultAdmin: true,
+      canDeleteDefaultAdmin: true
+    };
+    
+    users.push(defaultAdmin);
+    console.log('✅ Default admin user created in localStorage');
+  } else {
+    console.log('👤 Admin user already exists in localStorage');
+  }
+  
+  if (!studentExists) {
+    console.log('👤 Creating test student user in localStorage...');
+    const testStudent = {
+      username: "student1",
+      password: "student123",
+      role: "student",
+      fullName: "Test Student",
+      email: "student1@healthschool.com",
+      createdAt: new Date().toISOString(),
+      isDefaultAdmin: false
+    };
+    
+    users.push(testStudent);
+    console.log('✅ Test student user created in localStorage');
+  } else {
+    console.log('👤 Test student user already exists in localStorage');
+  }
+  
+  setToLS(LS_KEYS.USERS, users);
 };
 
 // API wrapper with fallback to localStorage

@@ -16,9 +16,14 @@
 [context.production.environment]
   REACT_APP_ENVIRONMENT = "production"
   REACT_APP_API_URL = "https://cbt-rew7.onrender.com"
-  REACT_APP_USE_API = "true"
+  REACT_APP_USE_API = "false"
 
 [context.deploy-preview.environment]
   REACT_APP_ENVIRONMENT = "preview"
   REACT_APP_API_URL = "https://cbt-rew7.onrender.com"
-  REACT_APP_USE_API = "true" 
+  REACT_APP_USE_API = "false"
+
+[context.branch-deploy.environment]
+  REACT_APP_ENVIRONMENT = "branch"
+  REACT_APP_API_URL = "https://cbt-rew7.onrender.com"
+  REACT_APP_USE_API = "false" 
