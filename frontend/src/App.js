@@ -4,6 +4,7 @@ import MultiTenantAdmin from "./components/MultiTenantAdmin";
 import MultiTenantAdminLogin from "./components/MultiTenantAdminLogin";
 import CBTExam from "./components/CBTExam";
 import StudentExam from "./components/StudentExam";
+import CBTAdminPanel from "./components/CBTAdminPanel";
 import dataService from "./services/dataService";
 
 const LS_KEYS = {
@@ -1097,7 +1098,7 @@ function App() {
               </svg>
               Back to Main Dashboard
                 </button>
-            <CBTExam user={user} tenant={institutionData} />
+            <CBTAdminPanel user={user} institution={institutionData} onLogout={onLogout} />
               </div>
           </div>
       </div>
