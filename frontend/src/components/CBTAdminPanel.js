@@ -9,6 +9,153 @@ import ExamManagement from './ExamManagement';
 // Helper function to generate unique IDs (compatible with older browsers)
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
+// Excel parsing function
+const parseQuestionsFromExcel = async (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(data);
+        
+        const worksheet = workbook.worksheets[0];
+        if (!worksheet) {
+          throw new Error('No worksheet found in Excel file');
+        }
+        
+        const questions = [];
+        const rows = worksheet.getRows();
+        
+        // Skip header row (row 1) and process data rows
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i];
+          if (!row) continue;
+          
+          // Get cell values - adjust column indices based on your Excel format
+          const questionText = row.getCell(1)?.value?.toString()?.trim();
+          const optionA = row.getCell(2)?.value?.toString()?.trim();
+          const optionB = row.getCell(3)?.value?.toString()?.trim();
+          const optionC = row.getCell(4)?.value?.toString()?.trim();
+          const optionD = row.getCell(5)?.value?.toString()?.trim();
+          const correctAnswer = row.getCell(6)?.value?.toString()?.trim();
+          const explanation = row.getCell(7)?.value?.toString()?.trim();
+          
+          // Skip empty rows
+          if (!questionText) continue;
+          
+          // Validate required fields
+          if (!optionA || !optionB || !optionC || !optionD || !correctAnswer) {
+            console.warn(`Skipping row ${i + 1}: Missing required fields`);
+            continue;
+          }
+          
+          // Determine correct answer index
+          let correctIndex = -1;
+          const correctAnswerUpper = correctAnswer.toUpperCase();
+          if (correctAnswerUpper === 'A' || correctAnswerUpper === '1') correctIndex = 0;
+          else if (correctAnswerUpper === 'B' || correctAnswerUpper === '2') correctIndex = 1;
+          else if (correctAnswerUpper === 'C' || correctAnswerUpper === '3') correctIndex = 2;
+          else if (correctAnswerUpper === 'D' || correctAnswerUpper === '4') correctIndex = 3;
+          
+          if (correctIndex === -1) {
+            console.warn(`Skipping row ${i + 1}: Invalid correct answer format`);
+            continue;
+          }
+          
+          const question = {
+            id: generateId(),
+            text: questionText,
+            options: [optionA, optionB, optionC, optionD],
+            correctAnswer: correctIndex,
+            explanation: explanation || '',
+            examId: null // Will be set when saving
+          };
+          
+          questions.push(question);
+        }
+        
+        if (questions.length === 0) {
+          throw new Error('No valid questions found in Excel file. Please check the format.');
+        }
+        
+        resolve(questions);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    
+    reader.onerror = () => reject(new Error('Failed to read Excel file'));
+    reader.readAsArrayBuffer(file);
+  });
+};
+
+// Markdown parsing function
+const parseQuestionsFromMarkdown = (markdown) => {
+  const questions = [];
+  const lines = markdown.split('\n');
+  let currentQuestion = null;
+  let currentOptions = [];
+  let currentCorrectAnswer = null;
+  let currentExplanation = '';
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    // Question line (starts with number or Q)
+    if (/^\d+\.|^Q\d*\.?/i.test(line)) {
+      // Save previous question if exists
+      if (currentQuestion && currentOptions.length >= 2 && currentCorrectAnswer !== null) {
+        questions.push({
+          id: generateId(),
+          text: currentQuestion,
+          options: currentOptions,
+          correctAnswer: currentCorrectAnswer,
+          explanation: currentExplanation,
+          examId: null
+        });
+      }
+      
+      // Start new question
+      currentQuestion = line.replace(/^\d+\.|^Q\d*\.?\s*/i, '').trim();
+      currentOptions = [];
+      currentCorrectAnswer = null;
+      currentExplanation = '';
+    }
+    // Option line (starts with a), b), c), d) or A), B), C), D)
+    else if (/^[a-dA-D]\)/.test(line)) {
+      const optionText = line.replace(/^[a-dA-D]\)\s*/, '').trim();
+      currentOptions.push(optionText);
+    }
+    // Correct answer line
+    else if (/^correct|^answer|^ans/i.test(line)) {
+      const answerMatch = line.match(/[a-dA-D]/);
+      if (answerMatch) {
+        const answer = answerMatch[0].toUpperCase();
+        currentCorrectAnswer = answer === 'A' ? 0 : answer === 'B' ? 1 : answer === 'C' ? 2 : 3;
+      }
+    }
+    // Explanation line
+    else if (/^explanation|^explain/i.test(line)) {
+      currentExplanation = line.replace(/^explanation|^explain\s*:?\s*/i, '').trim();
+    }
+  }
+  
+  // Save last question
+  if (currentQuestion && currentOptions.length >= 2 && currentCorrectAnswer !== null) {
+    questions.push({
+      id: generateId(),
+      text: currentQuestion,
+      options: currentOptions,
+      correctAnswer: currentCorrectAnswer,
+      explanation: currentExplanation,
+      examId: null
+    });
+  }
+  
+  return questions;
+};
+
 // eslint-disable-next-line no-unused-vars
 const LS_KEYS = {
   EXAMS: "cbt_exams_v1",
@@ -297,13 +444,13 @@ const CBTAdminPanel = ({ user, institution, onLogout }) => {
         );
       } else {
         // Create new exam
-        const newExam = {
-          id: generateId(),
-          ...examData,
-          createdAt: new Date().toISOString(),
-          questionCount: 0,
+      const newExam = {
+        id: generateId(),
+        ...examData,
+        createdAt: new Date().toISOString(),
+        questionCount: 0,
           institutionSlug: institution?.slug || 'default'
-        };
+      };
         updatedExams = [...exams, newExam];
         setSelectedExam(newExam);
         setQuestions([]); // ensure fresh questions list for a new exam
@@ -401,13 +548,13 @@ const CBTAdminPanel = ({ user, institution, onLogout }) => {
         <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl mb-8">
           {(() => {
             const allTabs = [
-              { id: "exams", label: "📋 Exam Management", icon: "📋", adminOnly: false },
+            { id: "exams", label: "📋 Exam Management", icon: "📋", adminOnly: false },
               { id: "create-exam", label: "➕ Create Exam", icon: "➕", adminOnly: true },
-              { id: "questions", label: "❓ Questions", icon: "❓", adminOnly: false },
-              { id: "results", label: "📊 Results", icon: "📊", adminOnly: false },
-              { id: "students", label: "👥 Students", icon: "👥", adminOnly: true },
-              { id: "settings", label: "⚙️ Settings", icon: "⚙️", adminOnly: true },
-              { id: "advanced-exams", label: "🔧 Advanced Exams", icon: "🔧", adminOnly: true }
+            { id: "questions", label: "❓ Questions", icon: "❓", adminOnly: false },
+            { id: "results", label: "📊 Results", icon: "📊", adminOnly: false },
+            { id: "students", label: "👥 Students", icon: "👥", adminOnly: true },
+            { id: "settings", label: "⚙️ Settings", icon: "⚙️", adminOnly: true },
+            { id: "advanced-exams", label: "🔧 Advanced Exams", icon: "🔧", adminOnly: true }
             ];
             
             console.log('🔍 DEBUG: User object:', user);
@@ -787,7 +934,7 @@ function QuestionsTab({ selectedExam, questions, setQuestions, onFileUpload, imp
                     new Paragraph({ 
                       children: [new TextRun({ text: 'CBT Questions Template', bold: true, size: 28 })] 
                     }),
-                    new Paragraph(' '),
+                  new Paragraph(' '),
                     new Paragraph({ 
                       children: [new TextRun({ text: 'Instructions:', bold: true, size: 20 })] 
                     }),
@@ -805,9 +952,9 @@ function QuestionsTab({ selectedExam, questions, setQuestions, onFileUpload, imp
                     new Paragraph('B) Abuja'),
                     new Paragraph('C) Kano'),
                     new Paragraph('D) Port Harcourt'),
-                    new Paragraph('Answer: B'),
+                  new Paragraph('Answer: B'),
                     new Paragraph('Explanation: Abuja became the capital of Nigeria in 1991.'),
-                    new Paragraph(' '),
+                  new Paragraph(' '),
                     new Paragraph('2) Which programming language is primarily used for web development?'),
                     new Paragraph('A) Python'),
                     new Paragraph('B) JavaScript'),
@@ -2335,151 +2482,5 @@ function CreateExamTab({ exams, onCreateExam, onActivateExam, onDeleteExam, onSe
   );
 }
 
-// Excel parsing function
-const parseQuestionsFromExcel = async (file) => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        const data = new Uint8Array(e.target.result);
-        const workbook = new ExcelJS.Workbook();
-        await workbook.xlsx.load(data);
-        
-        const worksheet = workbook.worksheets[0];
-        if (!worksheet) {
-          throw new Error('No worksheet found in Excel file');
-        }
-        
-        const questions = [];
-        const rows = worksheet.getRows();
-        
-        // Skip header row (row 1) and process data rows
-        for (let i = 1; i < rows.length; i++) {
-          const row = rows[i];
-          if (!row) continue;
-          
-          // Get cell values - adjust column indices based on your Excel format
-          const questionText = row.getCell(1)?.value?.toString()?.trim();
-          const optionA = row.getCell(2)?.value?.toString()?.trim();
-          const optionB = row.getCell(3)?.value?.toString()?.trim();
-          const optionC = row.getCell(4)?.value?.toString()?.trim();
-          const optionD = row.getCell(5)?.value?.toString()?.trim();
-          const correctAnswer = row.getCell(6)?.value?.toString()?.trim();
-          const explanation = row.getCell(7)?.value?.toString()?.trim();
-          
-          // Skip empty rows
-          if (!questionText) continue;
-          
-          // Validate required fields
-          if (!optionA || !optionB || !optionC || !optionD || !correctAnswer) {
-            console.warn(`Skipping row ${i + 1}: Missing required fields`);
-            continue;
-          }
-          
-          // Determine correct answer index
-          let correctIndex = -1;
-          const correctAnswerUpper = correctAnswer.toUpperCase();
-          if (correctAnswerUpper === 'A' || correctAnswerUpper === '1') correctIndex = 0;
-          else if (correctAnswerUpper === 'B' || correctAnswerUpper === '2') correctIndex = 1;
-          else if (correctAnswerUpper === 'C' || correctAnswerUpper === '3') correctIndex = 2;
-          else if (correctAnswerUpper === 'D' || correctAnswerUpper === '4') correctIndex = 3;
-          
-          if (correctIndex === -1) {
-            console.warn(`Skipping row ${i + 1}: Invalid correct answer format`);
-            continue;
-          }
-          
-          const question = {
-            id: generateId(),
-            text: questionText,
-            options: [optionA, optionB, optionC, optionD],
-            correctAnswer: correctIndex,
-            explanation: explanation || '',
-            examId: null // Will be set when saving
-          };
-          
-          questions.push(question);
-        }
-        
-        if (questions.length === 0) {
-          throw new Error('No valid questions found in Excel file. Please check the format.');
-        }
-        
-        resolve(questions);
-      } catch (error) {
-        reject(error);
-      }
-    };
-    
-    reader.onerror = () => reject(new Error('Failed to read Excel file'));
-    reader.readAsArrayBuffer(file);
-  });
-};
-
-// Markdown parsing function
-const parseQuestionsFromMarkdown = (markdown) => {
-  const questions = [];
-  const lines = markdown.split('\n');
-  let currentQuestion = null;
-  let currentOptions = [];
-  let currentCorrectAnswer = null;
-  let currentExplanation = '';
-  
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    
-    // Question line (starts with number or Q)
-    if (/^\d+\.|^Q\d*\.?/i.test(line)) {
-      // Save previous question if exists
-      if (currentQuestion && currentOptions.length >= 2 && currentCorrectAnswer !== null) {
-        questions.push({
-          id: generateId(),
-          text: currentQuestion,
-          options: currentOptions,
-          correctAnswer: currentCorrectAnswer,
-          explanation: currentExplanation,
-          examId: null
-        });
-      }
-      
-      // Start new question
-      currentQuestion = line.replace(/^\d+\.|^Q\d*\.?\s*/i, '').trim();
-      currentOptions = [];
-      currentCorrectAnswer = null;
-      currentExplanation = '';
-    }
-    // Option line (starts with a), b), c), d) or A), B), C), D)
-    else if (/^[a-dA-D]\)/.test(line)) {
-      const optionText = line.replace(/^[a-dA-D]\)\s*/, '').trim();
-      currentOptions.push(optionText);
-    }
-    // Correct answer line
-    else if (/^correct|^answer|^ans/i.test(line)) {
-      const answerMatch = line.match(/[a-dA-D]/);
-      if (answerMatch) {
-        const answer = answerMatch[0].toUpperCase();
-        currentCorrectAnswer = answer === 'A' ? 0 : answer === 'B' ? 1 : answer === 'C' ? 2 : 3;
-      }
-    }
-    // Explanation line
-    else if (/^explanation|^explain/i.test(line)) {
-      currentExplanation = line.replace(/^explanation|^explain\s*:?\s*/i, '').trim();
-    }
-  }
-  
-  // Save last question
-  if (currentQuestion && currentOptions.length >= 2 && currentCorrectAnswer !== null) {
-    questions.push({
-      id: generateId(),
-      text: currentQuestion,
-      options: currentOptions,
-      correctAnswer: currentCorrectAnswer,
-      explanation: currentExplanation,
-      examId: null
-    });
-  }
-  
-  return questions;
-};
 
 export default CBTAdminPanel;
