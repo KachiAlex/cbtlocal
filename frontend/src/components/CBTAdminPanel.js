@@ -658,52 +658,145 @@ function QuestionsTab({ selectedExam, questions, setQuestions, onFileUpload, imp
 
       {isAdmin && (
         <div className="bg-white rounded-xl border p-6">
-          <div className="flex flex-wrap gap-2 mb-4">
+          <div className="flex flex-wrap gap-3 mb-6">
             <button onClick={async () => {
               const workbook = new ExcelJS.Workbook();
               const worksheet = workbook.addWorksheet('Questions');
+              
+              // Add headers with better formatting
               worksheet.columns = [
-                { header: 'Question', key: 'question', width: 20 },
-                { header: 'A', key: 'optionA', width: 10 },
-                { header: 'B', key: 'optionB', width: 10 },
-                { header: 'C', key: 'optionC', width: 10 },
-                { header: 'D', key: 'optionD', width: 10 },
-                { header: 'Answer', key: 'answer', width: 10 }
+                { header: 'Question', key: 'question', width: 40 },
+                { header: 'Option A', key: 'optionA', width: 20 },
+                { header: 'Option B', key: 'optionB', width: 20 },
+                { header: 'Option C', key: 'optionC', width: 20 },
+                { header: 'Option D', key: 'optionD', width: 20 },
+                { header: 'Correct Answer', key: 'answer', width: 15 },
+                { header: 'Explanation (Optional)', key: 'explanation', width: 30 }
               ];
-              worksheet.addRow({ question: 'What is 2 + 2?', optionA: '3', optionB: '4', optionC: '5', optionD: '6', answer: 'B' });
-              worksheet.addRow({ question: 'Capital of France?', optionA: 'Berlin', optionB: 'Madrid', optionC: 'Paris', optionD: 'Rome', answer: 'C' });
+              
+              // Style the header row
+              const headerRow = worksheet.getRow(1);
+              headerRow.font = { bold: true, color: { argb: 'FFFFFF' } };
+              headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '366092' } };
+              
+              // Add sample questions
+              const sampleQuestions = [
+                {
+                  question: 'What is the capital of Nigeria?',
+                  optionA: 'Lagos',
+                  optionB: 'Abuja',
+                  optionC: 'Kano',
+                  optionD: 'Port Harcourt',
+                  answer: 'B',
+                  explanation: 'Abuja became the capital of Nigeria in 1991, replacing Lagos.'
+                },
+                {
+                  question: 'Which programming language is primarily used for web development?',
+                  optionA: 'Python',
+                  optionB: 'JavaScript',
+                  optionC: 'C++',
+                  optionD: 'Java',
+                  answer: 'B',
+                  explanation: 'JavaScript is the primary language for frontend web development.'
+                },
+                {
+                  question: 'What does HTML stand for?',
+                  optionA: 'HyperText Markup Language',
+                  optionB: 'High Tech Modern Language',
+                  optionC: 'Home Tool Markup Language',
+                  optionD: 'Hyperlink and Text Markup Language',
+                  answer: 'A',
+                  explanation: 'HTML stands for HyperText Markup Language, used for creating web pages.'
+                }
+              ];
+              
+              sampleQuestions.forEach(q => worksheet.addRow(q));
+              
+              // Add instructions
+              worksheet.addRow([]);
+              worksheet.addRow(['INSTRUCTIONS:']);
+              worksheet.addRow(['1. Fill in your questions in the format shown above']);
+              worksheet.addRow(['2. Correct Answer should be A, B, C, or D']);
+              worksheet.addRow(['3. Explanation is optional but recommended']);
+              worksheet.addRow(['4. Save as .xlsx format before uploading']);
+              worksheet.addRow(['5. Each student will get randomized questions from this pool']);
+              
               const excelBuffer = await workbook.xlsx.writeBuffer();
               const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-              saveAs(blob, 'cbt_questions_template.xlsx');
-            }} className="px-3 py-2 text-sm rounded-lg border hover:bg-gray-50">Download Excel sample</button>
+              saveAs(blob, `CBT_Questions_Template_${selectedExam.title.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`);
+            }} className="px-4 py-2 text-sm rounded-lg bg-green-600 text-white hover:bg-green-700 flex items-center gap-2">
+              📊 Download Excel Template
+            </button>
+            
             <button onClick={async () => {
               const doc = new Document({
-                sections: [{ properties: {}, children: [
-                  new Paragraph({ children: [new TextRun({ text: 'Sample CBT Questions Template', bold: true, size: 28 })] }),
-                  new Paragraph(' '),
-                  new Paragraph('1) What is 2 + 2?'),
-                  new Paragraph('A) 3'),
-                  new Paragraph('B) 4'),
-                  new Paragraph('C) 5'),
-                  new Paragraph('D) 6'),
-                  new Paragraph('Answer: B'),
-                  new Paragraph(' '),
-                  new Paragraph('2) Capital of France is?'),
-                  new Paragraph('A) Berlin'),
-                  new Paragraph('B) Madrid'),
-                  new Paragraph('C) Paris'),
-                  new Paragraph('D) Rome'),
-                  new Paragraph('Answer: C'),
-                ] }]
+                sections: [{ 
+                  properties: {}, 
+                  children: [
+                    new Paragraph({ 
+                      children: [new TextRun({ text: 'CBT Questions Template', bold: true, size: 28 })] 
+                    }),
+                    new Paragraph(' '),
+                    new Paragraph({ 
+                      children: [new TextRun({ text: 'Instructions:', bold: true, size: 20 })] 
+                    }),
+                    new Paragraph('1. Follow the format below for each question'),
+                    new Paragraph('2. Use A, B, C, D for correct answers'),
+                    new Paragraph('3. Save as .docx format before uploading'),
+                    new Paragraph('4. Each student will get randomized questions'),
+                    new Paragraph(' '),
+                    new Paragraph({ 
+                      children: [new TextRun({ text: 'Sample Questions:', bold: true, size: 20 })] 
+                    }),
+                    new Paragraph(' '),
+                    new Paragraph('1) What is the capital of Nigeria?'),
+                    new Paragraph('A) Lagos'),
+                    new Paragraph('B) Abuja'),
+                    new Paragraph('C) Kano'),
+                    new Paragraph('D) Port Harcourt'),
+                    new Paragraph('Answer: B'),
+                    new Paragraph('Explanation: Abuja became the capital of Nigeria in 1991.'),
+                    new Paragraph(' '),
+                    new Paragraph('2) Which programming language is primarily used for web development?'),
+                    new Paragraph('A) Python'),
+                    new Paragraph('B) JavaScript'),
+                    new Paragraph('C) C++'),
+                    new Paragraph('D) Java'),
+                    new Paragraph('Answer: B'),
+                    new Paragraph('Explanation: JavaScript is the primary language for frontend web development.'),
+                  ] 
+                }]
               });
               const blob = await Packer.toBlob(doc);
-              saveAs(blob, 'cbt_questions_template.docx');
-            }} className="px-3 py-2 text-sm rounded-lg border hover:bg-gray-50">Download Word sample</button>
+              saveAs(blob, `CBT_Questions_Template_${selectedExam.title.replace(/[^a-zA-Z0-9]/g, '_')}.docx`);
+            }} className="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-2">
+              📄 Download Word Template
+            </button>
           </div>
+          
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+            <div className="flex items-start gap-3">
+              <span className="text-yellow-600 text-xl">⚠️</span>
+              <div>
+                <h4 className="font-semibold text-yellow-800 mb-1">Randomization Notice</h4>
+                <p className="text-sm text-yellow-700">
+                  Each student will receive a randomized set of questions from your uploaded pool. 
+                  This ensures fairness and prevents cheating by giving different question orders to different students.
+                </p>
+              </div>
+            </div>
+          </div>
+          
           <h4 className="font-semibold mb-4">Upload Questions</h4>
           <div className="border-2 border-dashed border-blue-300 rounded-xl p-6 text-center bg-blue-50">
+            <div className="text-4xl mb-3">📁</div>
             <p className="text-lg font-semibold text-gray-700 mb-2">Upload Your Questions</p>
-            <p className="text-sm text-gray-600 mb-4">Drag and drop a .docx or .xlsx file here, or click to browse</p>
+            <p className="text-sm text-gray-600 mb-4">
+              Drag and drop a .docx or .xlsx file here, or click to browse
+            </p>
+            <p className="text-xs text-gray-500 mb-4">
+              Supported formats: Excel (.xlsx) or Word (.docx) | Max file size: 10MB
+            </p>
             <input 
               type="file" 
               accept=".docx,.xlsx" 
@@ -711,8 +804,8 @@ function QuestionsTab({ selectedExam, questions, setQuestions, onFileUpload, imp
               className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
             />
             {importError && (
-              <div className={`mt-3 p-2 rounded-lg text-sm ${
-                importError.includes('Successfully') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+              <div className={`mt-3 p-3 rounded-lg text-sm ${
+                importError.includes('Successfully') ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-red-100 text-red-700 border border-red-200'
               }`}>
                 {importError}
               </div>
@@ -730,6 +823,18 @@ function QuestionsTab({ selectedExam, questions, setQuestions, onFileUpload, imp
             </div>
           )}
         </div>
+        
+        {questions.length > 0 && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-blue-600">🔄</span>
+              <p className="text-sm text-blue-700">
+                <strong>Randomization Active:</strong> Each student will receive questions in a different random order, 
+                with answer options also randomized to ensure fairness and prevent cheating.
+              </p>
+            </div>
+          </div>
+        )}
         
         {questions.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
@@ -1564,6 +1669,56 @@ function EditExamModal({ exam, onClose, onUpdate }) {
 // Utility Functions
 function saveQuestionsForExam(examId, questions) {
   localStorage.setItem(`cbt_questions_${examId}`, JSON.stringify(questions));
+}
+
+// Randomization function for questions
+function getRandomizedQuestions(questions, studentId = null) {
+  if (!questions || questions.length === 0) return [];
+  
+  // Create a copy of questions to avoid mutating original
+  const questionsCopy = [...questions];
+  
+  // Use studentId as seed for consistent randomization per student
+  if (studentId) {
+    // Simple seeded random function
+    let seed = 0;
+    for (let i = 0; i < studentId.length; i++) {
+      seed += studentId.charCodeAt(i);
+    }
+    
+    // Fisher-Yates shuffle with seed
+    for (let i = questionsCopy.length - 1; i > 0; i--) {
+      seed = (seed * 9301 + 49297) % 233280;
+      const j = Math.floor((seed / 233280) * (i + 1));
+      [questionsCopy[i], questionsCopy[j]] = [questionsCopy[j], questionsCopy[i]];
+    }
+  } else {
+    // Random shuffle without seed
+    for (let i = questionsCopy.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [questionsCopy[i], questionsCopy[j]] = [questionsCopy[j], questionsCopy[i]];
+    }
+  }
+  
+  // Also randomize options within each question
+  questionsCopy.forEach(question => {
+    if (question.options && question.options.length === 4) {
+      const options = [...question.options];
+      const correctAnswer = options[question.correctIndex];
+      
+      // Shuffle options
+      for (let i = options.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [options[i], options[j]] = [options[j], options[i]];
+      }
+      
+      // Update correct index
+      question.correctIndex = options.indexOf(correctAnswer);
+      question.options = options;
+    }
+  });
+  
+  return questionsCopy;
 }
 
 function parseQuestionsFromMarkdown(md) {
