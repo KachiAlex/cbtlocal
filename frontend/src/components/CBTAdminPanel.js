@@ -368,7 +368,7 @@ const CBTAdminPanel = ({ user, institution, onLogout }) => {
           </div>
         </div>
 
-        {/* Tab Navigation */}
+        {/* Tab Navigation - Updated with debugging */}
         <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl mb-8">
           {(() => {
             const allTabs = [
