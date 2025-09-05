@@ -148,27 +148,6 @@ const CBTStudentPortal = ({ user, institution, onLogout }) => {
     }
   };
 
-  const randomizeQuestions = (originalQuestions) => {
-    return originalQuestions.map(q => {
-      const questionCopy = { ...q };
-      const options = [...q.options];
-      const correctAnswer = options[q.correctIndex];
-      
-      // Shuffle options
-      for (let i = options.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [options[i], options[j]] = [options[j], options[i]];
-      }
-      
-      const newCorrectIndex = options.indexOf(correctAnswer);
-      return {
-        ...questionCopy,
-        options: options,
-        correctIndex: newCorrectIndex,
-        originalId: q.id
-      };
-    }).sort(() => Math.random() - 0.5);
-  };
 
   const onSelect = (oi) => {
     setAnswers(prev => {
