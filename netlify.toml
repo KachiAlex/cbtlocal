@@ -5,7 +5,7 @@
   command = "npm ci --audit-level=moderate && npm run build"
 
 [build.environment]
-  NODE_VERSION = "18"
+  NODE_VERSION = "20"
   NPM_CONFIG_AUDIT_LEVEL = "moderate"
 
 [[redirects]]
