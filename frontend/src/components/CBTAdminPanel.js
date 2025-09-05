@@ -257,24 +257,35 @@ const CBTAdminPanel = ({ user, institution, onLogout }) => {
 
   const handleCreateExam = async (examData) => {
     try {
-      const newExam = {
-        id: generateId(),
-        ...examData,
-        createdAt: new Date().toISOString(),
-        isActive: false,
-        questionCount: 0,
-        institutionSlug: institution.slug
-      };
+      let updatedExams;
       
-      const updatedExams = [...exams, newExam];
+      if (examData.id) {
+        // Update existing exam
+        updatedExams = exams.map(exam => 
+          exam.id === examData.id 
+            ? { ...exam, ...examData, updatedAt: new Date().toISOString() }
+            : exam
+        );
+      } else {
+        // Create new exam
+        const newExam = {
+          id: generateId(),
+          ...examData,
+          createdAt: new Date().toISOString(),
+          questionCount: 0,
+          institutionSlug: institution.slug
+        };
+        updatedExams = [...exams, newExam];
+        setSelectedExam(newExam);
+        setQuestions([]); // ensure fresh questions list for a new exam
+        setActiveTab("questions");
+      }
+      
       await saveExams(updatedExams);
       setExams(updatedExams);
       setShowCreateExam(false);
-      setSelectedExam(newExam);
-      setQuestions([]); // ensure fresh questions list for a new exam
-      setActiveTab("questions");
     } catch (error) {
-      console.error('Error creating exam:', error);
+      console.error('Error creating/updating exam:', error);
     }
   };
 
@@ -358,6 +369,7 @@ const CBTAdminPanel = ({ user, institution, onLogout }) => {
         <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl mb-8">
           {[
             { id: "exams", label: "📋 Exam Management", icon: "📋", adminOnly: false },
+            { id: "create-exam", label: "➕ Create Exam", icon: "➕", adminOnly: true },
             { id: "questions", label: "❓ Questions", icon: "❓", adminOnly: false },
             { id: "results", label: "📊 Results", icon: "📊", adminOnly: false },
             { id: "students", label: "👥 Students", icon: "👥", adminOnly: true },
@@ -389,6 +401,20 @@ const CBTAdminPanel = ({ user, institution, onLogout }) => {
             selectedExam={selectedExam}
             onEditExam={() => setShowEditExam(true)}
             user={user}
+            onViewQuestions={() => setActiveTab("questions")}
+          />
+        )}
+
+        {activeTab === "create-exam" && (
+          <CreateExamTab 
+            exams={exams}
+            onCreateExam={handleCreateExam}
+            onActivateExam={handleActivateExam}
+            onDeleteExam={handleDeleteExam}
+            onSelectExam={setSelectedExam}
+            selectedExam={selectedExam}
+            user={user}
+            institution={institution}
             onViewQuestions={() => setActiveTab("questions")}
           />
         )}
@@ -1711,6 +1737,445 @@ async function parseQuestionsFromExcel(file) {
     console.error('Error parsing Excel file:', error);
     throw new Error('Failed to parse Excel file. Please check the format.');
   }
+}
+
+// Create Exam Management Tab Component
+function CreateExamTab({ exams, onCreateExam, onActivateExam, onDeleteExam, onSelectExam, selectedExam, user, institution, onViewQuestions }) {
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [editingExam, setEditingExam] = useState(null);
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    duration: 60,
+    questionCount: 0,
+    startDate: '',
+    endDate: '',
+    passingScore: 50,
+    isActive: false
+  });
+
+  const handleCreateNew = () => {
+    setFormData({
+      title: '',
+      description: '',
+      duration: 60,
+      questionCount: 0,
+      startDate: '',
+      endDate: '',
+      passingScore: 50,
+      isActive: false
+    });
+    setShowCreateForm(true);
+  };
+
+  const handleEdit = (exam) => {
+    setEditingExam(exam);
+    setFormData({
+      title: exam.title,
+      description: exam.description || '',
+      duration: exam.duration || 60,
+      questionCount: exam.questionCount || 0,
+      startDate: exam.startDate || '',
+      endDate: exam.endDate || '',
+      passingScore: exam.passingScore || 50,
+      isActive: exam.isActive || false
+    });
+    setShowEditForm(true);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!formData.title.trim()) return;
+
+    const examData = {
+      ...formData,
+      institutionSlug: institution?.slug
+    };
+
+    if (showEditForm && editingExam) {
+      // Update existing exam
+      const updatedExam = { ...editingExam, ...examData };
+      onCreateExam(updatedExam);
+      setShowEditForm(false);
+      setEditingExam(null);
+    } else {
+      // Create new exam
+      onCreateExam(examData);
+      setShowCreateForm(false);
+    }
+  };
+
+  const handleMoveToQuestions = (exam) => {
+    onSelectExam(exam);
+    onViewQuestions();
+  };
+
+  const getExamStatus = (exam) => {
+    if (!exam.isActive) return { status: 'Inactive', color: 'bg-gray-100 text-gray-700' };
+    
+    const now = new Date();
+    const start = exam.startDate ? new Date(exam.startDate) : null;
+    const end = exam.endDate ? new Date(exam.endDate) : null;
+    
+    if (start && now < start) return { status: 'Scheduled', color: 'bg-blue-100 text-blue-700' };
+    if (end && now > end) return { status: 'Expired', color: 'bg-red-100 text-red-700' };
+    return { status: 'Active', color: 'bg-green-100 text-green-700' };
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900">Create & Manage Exams</h3>
+          <p className="text-sm text-gray-600">Create new exams, set schedules, and manage activation</p>
+        </div>
+        <button
+          onClick={handleCreateNew}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+        >
+          <span>➕</span>
+          Create New Exam
+        </button>
+      </div>
+
+      {/* Exams List */}
+      <div className="bg-white rounded-xl border overflow-hidden">
+        {exams.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-6xl mb-4">📝</div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">No Exams Created Yet</h3>
+            <p className="text-gray-600 mb-6">Start by creating your first exam</p>
+            <button
+              onClick={handleCreateNew}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-lg"
+            >
+              Create Your First Exam
+            </button>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-200">
+            {exams.map((exam) => {
+              const statusInfo = getExamStatus(exam);
+              return (
+                <div key={exam.id} className="p-6 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h4 className="text-lg font-semibold text-gray-900">{exam.title}</h4>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusInfo.color}`}>
+                          {statusInfo.status}
+                        </span>
+                      </div>
+                      
+                      {exam.description && (
+                        <p className="text-gray-600 mb-3">{exam.description}</p>
+                      )}
+                      
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-500">
+                        <div>
+                          <span className="font-medium">Duration:</span> {exam.duration} min
+                        </div>
+                        <div>
+                          <span className="font-medium">Questions:</span> {exam.questionCount || 0}
+                        </div>
+                        <div>
+                          <span className="font-medium">Passing Score:</span> {exam.passingScore || 50}%
+                        </div>
+                        <div>
+                          <span className="font-medium">Created:</span> {new Date(exam.createdAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                      
+                      {(exam.startDate || exam.endDate) && (
+                        <div className="mt-2 text-sm text-gray-500">
+                          <span className="font-medium">Schedule:</span>
+                          {exam.startDate && ` ${new Date(exam.startDate).toLocaleString()}`}
+                          {exam.startDate && exam.endDate && ' - '}
+                          {exam.endDate && new Date(exam.endDate).toLocaleString()}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center gap-2 ml-4">
+                      <button
+                        onClick={() => onActivateExam(exam.id)}
+                        className={`px-3 py-1 rounded-lg text-sm font-medium ${
+                          exam.isActive 
+                            ? 'bg-red-100 text-red-700 hover:bg-red-200' 
+                            : 'bg-green-100 text-green-700 hover:bg-green-200'
+                        }`}
+                      >
+                        {exam.isActive ? 'Deactivate' : 'Activate'}
+                      </button>
+                      
+                      <button
+                        onClick={() => handleEdit(exam)}
+                        className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 text-sm font-medium"
+                      >
+                        Edit
+                      </button>
+                      
+                      <button
+                        onClick={() => handleMoveToQuestions(exam)}
+                        className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 text-sm font-medium"
+                      >
+                        Questions
+                      </button>
+                      
+                      <button
+                        onClick={() => onDeleteExam(exam.id)}
+                        className="px-3 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 text-sm font-medium"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Create Exam Modal */}
+      {showCreateForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-2xl mx-4 w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold">Create New Exam</h3>
+              <button 
+                onClick={() => setShowCreateForm(false)}
+                className="text-gray-500 hover:text-gray-700 text-xl"
+              >
+                ×
+              </button>
+            </div>
+            
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Exam Title *</label>
+                <input
+                  type="text"
+                  value={formData.title}
+                  onChange={(e) => setFormData({...formData, title: e.target.value})}
+                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., Midterm Exam - Biology 101"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Brief description of the exam"
+                  rows="3"
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Duration (minutes) *</label>
+                  <input
+                    type="number"
+                    value={formData.duration}
+                    onChange={(e) => setFormData({...formData, duration: parseInt(e.target.value)})}
+                    className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    min="15"
+                    max="300"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Passing Score (%)</label>
+                  <input
+                    type="number"
+                    value={formData.passingScore}
+                    onChange={(e) => setFormData({...formData, passingScore: parseInt(e.target.value)})}
+                    className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    min="0"
+                    max="100"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Start Date/Time</label>
+                  <input
+                    type="datetime-local"
+                    value={formData.startDate}
+                    onChange={(e) => setFormData({...formData, startDate: e.target.value})}
+                    className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">End Date/Time</label>
+                  <input
+                    type="datetime-local"
+                    value={formData.endDate}
+                    onChange={(e) => setFormData({...formData, endDate: e.target.value})}
+                    className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="isActive"
+                  checked={formData.isActive}
+                  onChange={(e) => setFormData({...formData, isActive: e.target.checked})}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <label htmlFor="isActive" className="text-sm font-medium text-gray-700">
+                  Activate exam immediately after creation
+                </label>
+              </div>
+              
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateForm(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Create Exam
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Exam Modal */}
+      {showEditForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-2xl mx-4 w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold">Edit Exam</h3>
+              <button 
+                onClick={() => setShowEditForm(false)}
+                className="text-gray-500 hover:text-gray-700 text-xl"
+              >
+                ×
+              </button>
+            </div>
+            
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Exam Title *</label>
+                <input
+                  type="text"
+                  value={formData.title}
+                  onChange={(e) => setFormData({...formData, title: e.target.value})}
+                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  rows="3"
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Duration (minutes) *</label>
+                  <input
+                    type="number"
+                    value={formData.duration}
+                    onChange={(e) => setFormData({...formData, duration: parseInt(e.target.value)})}
+                    className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    min="15"
+                    max="300"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Passing Score (%)</label>
+                  <input
+                    type="number"
+                    value={formData.passingScore}
+                    onChange={(e) => setFormData({...formData, passingScore: parseInt(e.target.value)})}
+                    className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    min="0"
+                    max="100"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Start Date/Time</label>
+                  <input
+                    type="datetime-local"
+                    value={formData.startDate}
+                    onChange={(e) => setFormData({...formData, startDate: e.target.value})}
+                    className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">End Date/Time</label>
+                  <input
+                    type="datetime-local"
+                    value={formData.endDate}
+                    onChange={(e) => setFormData({...formData, endDate: e.target.value})}
+                    className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="editIsActive"
+                  checked={formData.isActive}
+                  onChange={(e) => setFormData({...formData, isActive: e.target.checked})}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <label htmlFor="editIsActive" className="text-sm font-medium text-gray-700">
+                  Exam is active
+                </label>
+              </div>
+              
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowEditForm(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Update Exam
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default CBTAdminPanel;
