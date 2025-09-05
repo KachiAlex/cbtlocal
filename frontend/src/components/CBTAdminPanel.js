@@ -4,6 +4,7 @@ import { saveAs } from 'file-saver';
 import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell } from 'docx';
 import mammoth from 'mammoth';
 import dataService from '../services/dataService';
+import ExamManagement from './ExamManagement';
 
 // Helper function to generate unique IDs (compatible with older browsers)
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -360,7 +361,8 @@ const CBTAdminPanel = ({ user, institution, onLogout }) => {
             { id: "questions", label: "❓ Questions", icon: "❓", adminOnly: false },
             { id: "results", label: "📊 Results", icon: "📊", adminOnly: false },
             { id: "students", label: "👥 Students", icon: "👥", adminOnly: true },
-            { id: "settings", label: "⚙️ Settings", icon: "⚙️", adminOnly: true }
+            { id: "settings", label: "⚙️ Settings", icon: "⚙️", adminOnly: true },
+            { id: "advanced-exams", label: "🔧 Advanced Exams", icon: "🔧", adminOnly: true }
           ].filter(tab => !tab.adminOnly || user.role === 'admin' || user.role === 'super_admin' || user.role === 'managed_admin').map(tab => (
             <button
               key={tab.id}
@@ -388,6 +390,13 @@ const CBTAdminPanel = ({ user, institution, onLogout }) => {
             onEditExam={() => setShowEditExam(true)}
             user={user}
             onViewQuestions={() => setActiveTab("questions")}
+          />
+        )}
+
+        {activeTab === "advanced-exams" && (
+          <ExamManagement 
+            user={user}
+            onBack={() => setActiveTab("exams")}
           />
         )}
 
@@ -516,7 +525,7 @@ function ExamsTab({ exams, onCreateExam, onActivateExam, onDeleteExam, onSelectE
                       {isEnded && <span className="px-2 py-0.5 rounded-full bg-gray-200 text-gray-700">Ended</span>}
                     </div>
                   </div>
-                  <div className="flex gap-2">
+                    <div className="flex gap-2">
                     {/* View Questions Button - Available to all users */}
                     <button
                       onClick={() => {
@@ -535,30 +544,30 @@ function ExamsTab({ exams, onCreateExam, onActivateExam, onDeleteExam, onSelectE
                     {/* Admin-only buttons */}
                     {isAdmin && (
                       <>
-                        <button
-                          onClick={() => onActivateExam(exam.id)}
-                          className={`px-3 py-1 rounded-lg text-xs ${
-                            exam.isActive 
-                              ? "bg-orange-600 text-white hover:bg-orange-700" 
-                              : "bg-blue-600 text-white hover:bg-blue-700"
-                          }`}
-                        >
-                          {exam.isActive ? "Deactivate" : "Activate"}
-                        </button>
-                        <button
-                          onClick={() => onEditExam()}
-                          className="px-3 py-1 bg-blue-600 text-white rounded-lg text-xs hover:bg-blue-700"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => onDeleteExam(exam.id)}
-                          className="px-3 py-1 bg-red-600 text-white rounded-lg text-xs hover:bg-red-700"
-                        >
-                          Delete
-                        </button>
+                      <button
+                        onClick={() => onActivateExam(exam.id)}
+                        className={`px-3 py-1 rounded-lg text-xs ${
+                          exam.isActive 
+                            ? "bg-orange-600 text-white hover:bg-orange-700" 
+                            : "bg-blue-600 text-white hover:bg-blue-700"
+                        }`}
+                      >
+                        {exam.isActive ? "Deactivate" : "Activate"}
+                      </button>
+                      <button
+                        onClick={() => onEditExam()}
+                        className="px-3 py-1 bg-blue-600 text-white rounded-lg text-xs hover:bg-blue-700"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => onDeleteExam(exam.id)}
+                        className="px-3 py-1 bg-red-600 text-white rounded-lg text-xs hover:bg-red-700"
+                      >
+                        Delete
+                      </button>
                       </>
-                    )}
+                  )}
                   </div>
                 </div>
               </div>
@@ -611,13 +620,13 @@ function QuestionsTab({ selectedExam, questions, setQuestions, onFileUpload, imp
               <span>📅 Created: {new Date(selectedExam.createdAt).toLocaleDateString()}</span>
               {selectedExam.isActive && <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700">🟢 Active</span>}
             </div>
-          </div>
-          <button
-            onClick={onBackToExams}
+        </div>
+        <button
+          onClick={onBackToExams}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
-          >
-            ← Back to Exams
-          </button>
+        >
+          ← Back to Exams
+        </button>
         </div>
       </div>
 
@@ -976,12 +985,12 @@ function SettingsTab({ onBackToExams, institution, user }) {
 
       await response.json();
       
-      showToast('Logo updated successfully!', 'success');
-      // Clear the form
-      setSelectedLogoFile(null);
-      setLogoUrl('');
-      setLogoUrlInput('');
-      setLogoModalOpen(false);
+        showToast('Logo updated successfully!', 'success');
+        // Clear the form
+        setSelectedLogoFile(null);
+        setLogoUrl('');
+        setLogoUrlInput('');
+        setLogoModalOpen(false);
     } catch (error) {
       console.error('Logo update failed:', error);
       setLogoError(error.message);
@@ -1058,7 +1067,7 @@ function SettingsTab({ onBackToExams, institution, user }) {
           <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
             <div className="flex justify-between items-center mb-4">
               <div>
-                <h3 className="text-lg font-bold">Update Institution Logo</h3>
+              <h3 className="text-lg font-bold">Update Institution Logo</h3>
                 <p className="text-sm text-gray-600 mt-1">Upload an image file or provide a URL</p>
               </div>
               <button
@@ -1662,7 +1671,7 @@ async function parseQuestionsFromExcel(file) {
     
     const worksheet = workbook.getWorksheet('Questions'); // Assuming worksheet name is 'Questions'
     if (!worksheet) throw new Error('No worksheet named "Questions" found in Excel file');
-
+    
     const questions = [];
     let rowNumber = 2; // Start from row 2 to skip header
 
@@ -1687,7 +1696,7 @@ async function parseQuestionsFromExcel(file) {
         rowNumber++;
         continue;
       }
-
+      
       questions.push({
         id: Date.now().toString(36) + Math.random().toString(36).substr(2),
         text: questionText.toString().trim(),
