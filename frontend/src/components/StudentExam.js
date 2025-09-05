@@ -75,7 +75,6 @@ const StudentExam = ({ user, tenant }) => {
 
       // Get exam duration from localStorage (set by admin)
       const examDuration = localStorage.getItem('cbt_exam_duration');
-      const examInfo = localStorage.getItem('cbt_exam_info');
       
       let durationInSeconds = loadedQuestions.length * 60; // Default: 1 minute per question
       
