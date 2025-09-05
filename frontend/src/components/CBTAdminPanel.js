@@ -278,7 +278,6 @@ const parseQuestionsFromMarkdown = (markdown) => {
   let currentOptions = [];
   let currentCorrectAnswer = null;
   let currentExplanation = '';
-  let questionNumber = 0;
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -309,7 +308,6 @@ const parseQuestionsFromMarkdown = (markdown) => {
       }
       
       // Start new question
-      questionNumber++;
       currentQuestion = questionMatch[2] || questionMatch[1];
       currentOptions = [];
       currentCorrectAnswer = null;
@@ -859,7 +857,7 @@ const CBTAdminPanel = ({ user, institution, onLogout }) => {
           console.log('🔍 Saving questions for exam:', selectedExam.id);
           saveQuestionsForExam(selectedExam.id, parsed);
           updateExamQuestionCount(selectedExam.id, parsed.length);
-        } else {
+      } else {
           console.warn('⚠️ No exam selected - questions imported but not saved to exam');
         }
         setImportError(`Successfully imported ${parsed.length} questions!`);
