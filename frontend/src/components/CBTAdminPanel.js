@@ -1679,55 +1679,6 @@ function saveQuestionsForExam(examId, questions) {
   localStorage.setItem(`cbt_questions_${examId}`, JSON.stringify(questions));
 }
 
-// Randomization function for questions
-function getRandomizedQuestions(questions, studentId = null) {
-  if (!questions || questions.length === 0) return [];
-  
-  // Create a copy of questions to avoid mutating original
-  const questionsCopy = [...questions];
-  
-  // Use studentId as seed for consistent randomization per student
-  if (studentId) {
-    // Simple seeded random function
-    let seed = 0;
-    for (let i = 0; i < studentId.length; i++) {
-      seed += studentId.charCodeAt(i);
-    }
-    
-    // Fisher-Yates shuffle with seed
-    for (let i = questionsCopy.length - 1; i > 0; i--) {
-      seed = (seed * 9301 + 49297) % 233280;
-      const j = Math.floor((seed / 233280) * (i + 1));
-      [questionsCopy[i], questionsCopy[j]] = [questionsCopy[j], questionsCopy[i]];
-    }
-  } else {
-    // Random shuffle without seed
-    for (let i = questionsCopy.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [questionsCopy[i], questionsCopy[j]] = [questionsCopy[j], questionsCopy[i]];
-    }
-  }
-  
-  // Also randomize options within each question
-  questionsCopy.forEach(question => {
-    if (question.options && question.options.length === 4) {
-      const options = [...question.options];
-      const correctAnswer = options[question.correctIndex];
-      
-      // Shuffle options
-      for (let i = options.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [options[i], options[j]] = [options[j], options[i]];
-      }
-      
-      // Update correct index
-      question.correctIndex = options.indexOf(correctAnswer);
-      question.options = options;
-    }
-  });
-  
-  return questionsCopy;
-}
 
 function parseQuestionsFromMarkdown(md) {
   const text = md.replace(/\r/g, "").trim();
