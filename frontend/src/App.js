@@ -1219,6 +1219,9 @@ async function authenticateUser(username, password) {
     console.log('👥 Total users loaded:', users.length);
     
     // Find the user
+    console.log('🔍 All users:', users.map(u => ({ username: u.username, password: u.password, role: u.role })));
+    console.log('🔍 Looking for:', { username: username.toLowerCase(), password: password });
+    
     const user = users.find(u => 
       u.username.toLowerCase() === username.toLowerCase() && 
       u.password === password
