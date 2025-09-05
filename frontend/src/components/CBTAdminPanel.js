@@ -361,6 +361,9 @@ const CBTAdminPanel = ({ user, institution, onLogout }) => {
             </div>
             <div className="text-sm text-gray-500">
               Logged in as: <span className="font-medium">{user.fullName || user.username}</span>
+              <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">
+                Role: {user.role}
+              </span>
             </div>
           </div>
         </div>
@@ -375,7 +378,12 @@ const CBTAdminPanel = ({ user, institution, onLogout }) => {
             { id: "students", label: "👥 Students", icon: "👥", adminOnly: true },
             { id: "settings", label: "⚙️ Settings", icon: "⚙️", adminOnly: true },
             { id: "advanced-exams", label: "🔧 Advanced Exams", icon: "🔧", adminOnly: true }
-          ].filter(tab => !tab.adminOnly || user.role === 'admin' || user.role === 'super_admin' || user.role === 'managed_admin').map(tab => (
+          ].filter(tab => {
+            const isAdmin = user.role === 'admin' || user.role === 'super_admin' || user.role === 'managed_admin';
+            const shouldShow = !tab.adminOnly || isAdmin;
+            console.log(`Tab ${tab.id}: adminOnly=${tab.adminOnly}, user.role=${user.role}, isAdmin=${isAdmin}, shouldShow=${shouldShow}`);
+            return shouldShow;
+          }).map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
