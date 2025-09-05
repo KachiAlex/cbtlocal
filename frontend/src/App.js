@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import InstitutionLoginPage from "./components/InstitutionLoginPage";
 import MultiTenantAdmin from "./components/MultiTenantAdmin";
 import MultiTenantAdminLogin from "./components/MultiTenantAdminLogin";
-import CBTExam from "./components/CBTExam";
 import StudentExam from "./components/StudentExam";
 import CBTAdminPanel from "./components/CBTAdminPanel";
 import dataService from "./services/dataService";
