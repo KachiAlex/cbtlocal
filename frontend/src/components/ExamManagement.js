@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import * as ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
-import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell } from 'docx';
+import { Document, Packer, Paragraph, TextRun } from 'docx';
 import mammoth from 'mammoth';
 import dataService from '../services/dataService';
 
