@@ -1,3 +1,4 @@
+# React app build configuration
 [build]
   base = "frontend"
   publish = "build"
