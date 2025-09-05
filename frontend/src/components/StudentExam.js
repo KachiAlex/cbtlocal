@@ -37,7 +37,7 @@ const StudentExam = ({ user, tenant }) => {
       submittedAt: new Date().toISOString(),
       answers: answers,
       examTitle: examTitle,
-      timeTaken: (questions.length * 60) - timeLeft, // Time taken in seconds
+      timeTaken: (parseInt(localStorage.getItem('cbt_exam_duration') || questions.length) * 60) - timeLeft, // Time taken in seconds
       tenant: tenant?.name || 'Unknown Institution'
     };
 
@@ -73,10 +73,23 @@ const StudentExam = ({ user, tenant }) => {
         return;
       }
 
+      // Get exam duration from localStorage (set by admin)
+      const examDuration = localStorage.getItem('cbt_exam_duration');
+      const examInfo = localStorage.getItem('cbt_exam_info');
+      
+      let durationInSeconds = loadedQuestions.length * 60; // Default: 1 minute per question
+      
+      if (examDuration) {
+        durationInSeconds = parseInt(examDuration) * 60; // Convert minutes to seconds
+        console.log('🔍 Using admin-set exam duration:', examDuration, 'minutes');
+      } else {
+        console.log('⚠️ No exam duration found, using default calculation');
+      }
+
       setQuestions(loadedQuestions);
       setExamTitle(loadedExamTitle);
       setAnswers(new Array(loadedQuestions.length).fill(-1));
-      setTimeLeft(loadedQuestions.length * 60); // 1 minute per question
+      setTimeLeft(durationInSeconds);
       setLoading(false);
     } catch (error) {
       console.error('Error loading exam data:', error);
@@ -180,7 +193,7 @@ const StudentExam = ({ user, tenant }) => {
               Percentage: {Math.round((score / questions.length) * 100)}%
             </p>
             <p className="text-sm text-gray-500 mt-2">
-              Time taken: {formatTime((questions.length * 60) - timeLeft)}
+              Time taken: {formatTime((parseInt(localStorage.getItem('cbt_exam_duration') || questions.length) * 60) - timeLeft)}
             </p>
           </div>
           <p className="text-sm text-gray-600 mb-4">
@@ -210,10 +223,19 @@ const StudentExam = ({ user, tenant }) => {
               </p>
             </div>
             <div className="text-right">
-              <div className="text-2xl font-bold text-red-600">
+              <div className={`text-2xl font-bold ${
+                timeLeft <= 300 ? 'text-red-600 animate-pulse' : // 5 minutes or less
+                timeLeft <= 600 ? 'text-orange-600' : // 10 minutes or less
+                'text-blue-600'
+              }`}>
                 {formatTime(timeLeft)}
               </div>
               <div className="text-xs text-gray-500">Time Remaining</div>
+              {timeLeft <= 300 && (
+                <div className="text-xs text-red-600 font-medium mt-1">
+                  ⚠️ Less than 5 minutes left!
+                </div>
+              )}
             </div>
           </div>
         </div>
