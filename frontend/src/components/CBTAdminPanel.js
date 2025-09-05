@@ -19,66 +19,61 @@ const parseQuestionsFromExcel = async (file) => {
         const workbook = new ExcelJS.Workbook();
         await workbook.xlsx.load(data);
         
-        const worksheet = workbook.worksheets[0];
+        const questions = [];
+        
+        // Try to find the worksheet with questions
+        let worksheet = null;
+        const possibleNames = ['Questions', 'Sheet1', 'Question Bank', 'Exam Questions', 'Quiz'];
+        
+        for (const name of possibleNames) {
+          const ws = workbook.getWorksheet(name);
+          if (ws) {
+            worksheet = ws;
+            break;
+          }
+        }
+        
+        // If no named worksheet found, use the first one
+        if (!worksheet) {
+          worksheet = workbook.worksheets[0];
+        }
+        
         if (!worksheet) {
           throw new Error('No worksheet found in Excel file');
         }
         
-        const questions = [];
         const rows = worksheet.getRows();
+        if (!rows || rows.length === 0) {
+          throw new Error('No data found in worksheet');
+        }
         
-        // Skip header row (row 1) and process data rows
-        for (let i = 1; i < rows.length; i++) {
+        // Auto-detect header row and column structure
+        const headerRow = findHeaderRow(rows);
+        const columnMap = detectColumnStructure(rows[headerRow]);
+        
+        console.log('🔍 Detected column structure:', columnMap);
+        
+        // Process data rows starting after header
+        for (let i = headerRow + 1; i < rows.length; i++) {
           const row = rows[i];
           if (!row) continue;
           
-          // Get cell values - adjust column indices based on your Excel format
-          const questionText = row.getCell(1)?.value?.toString()?.trim();
-          const optionA = row.getCell(2)?.value?.toString()?.trim();
-          const optionB = row.getCell(3)?.value?.toString()?.trim();
-          const optionC = row.getCell(4)?.value?.toString()?.trim();
-          const optionD = row.getCell(5)?.value?.toString()?.trim();
-          const correctAnswer = row.getCell(6)?.value?.toString()?.trim();
-          const explanation = row.getCell(7)?.value?.toString()?.trim();
-          
-          // Skip empty rows
-          if (!questionText) continue;
-          
-          // Validate required fields
-          if (!optionA || !optionB || !optionC || !optionD || !correctAnswer) {
-            console.warn(`Skipping row ${i + 1}: Missing required fields`);
+          try {
+            const question = parseExcelRow(row, columnMap, i + 1);
+            if (question) {
+              questions.push(question);
+            }
+          } catch (error) {
+            console.warn(`Error parsing row ${i + 1}:`, error.message);
             continue;
           }
-          
-          // Determine correct answer index
-          let correctIndex = -1;
-          const correctAnswerUpper = correctAnswer.toUpperCase();
-          if (correctAnswerUpper === 'A' || correctAnswerUpper === '1') correctIndex = 0;
-          else if (correctAnswerUpper === 'B' || correctAnswerUpper === '2') correctIndex = 1;
-          else if (correctAnswerUpper === 'C' || correctAnswerUpper === '3') correctIndex = 2;
-          else if (correctAnswerUpper === 'D' || correctAnswerUpper === '4') correctIndex = 3;
-          
-          if (correctIndex === -1) {
-            console.warn(`Skipping row ${i + 1}: Invalid correct answer format`);
-            continue;
-          }
-          
-          const question = {
-            id: generateId(),
-            text: questionText,
-            options: [optionA, optionB, optionC, optionD],
-            correctAnswer: correctIndex,
-            explanation: explanation || '',
-            examId: null // Will be set when saving
-          };
-          
-          questions.push(question);
         }
         
         if (questions.length === 0) {
           throw new Error('No valid questions found in Excel file. Please check the format.');
         }
         
+        console.log(`✅ Successfully parsed ${questions.length} questions from Excel`);
         resolve(questions);
       } catch (error) {
         reject(error);
@@ -90,70 +85,589 @@ const parseQuestionsFromExcel = async (file) => {
   });
 };
 
-// Markdown parsing function
+// Helper function to find header row
+const findHeaderRow = (rows) => {
+  for (let i = 0; i < Math.min(5, rows.length); i++) {
+    const row = rows[i];
+    if (!row) continue;
+    
+    const cellValues = [];
+    for (let j = 1; j <= 10; j++) {
+      const cell = row.getCell(j);
+      if (cell && cell.value) {
+        cellValues.push(cell.value.toString().toLowerCase());
+      }
+    }
+    
+    // Check if this looks like a header row
+    const headerKeywords = ['question', 'option', 'answer', 'correct', 'a)', 'b)', 'c)', 'd)'];
+    const hasHeaderKeywords = headerKeywords.some(keyword => 
+      cellValues.some(value => value.includes(keyword))
+    );
+    
+    if (hasHeaderKeywords) {
+      return i;
+    }
+  }
+  
+  return 0; // Default to first row if no header detected
+};
+
+// Helper function to detect column structure
+const detectColumnStructure = (headerRow) => {
+  const columnMap = {
+    question: null,
+    options: [],
+    correctAnswer: null,
+    explanation: null
+  };
+  
+  if (!headerRow) return columnMap;
+  
+  for (let i = 1; i <= 15; i++) {
+    const cell = headerRow.getCell(i);
+    if (!cell || !cell.value) continue;
+    
+    const value = cell.value.toString().toLowerCase().trim();
+    
+    // Question column
+    if (!columnMap.question && (
+      value.includes('question') || 
+      value.includes('q)') ||
+      value === 'q' ||
+      value === '1'
+    )) {
+      columnMap.question = i;
+    }
+    
+    // Option columns
+    if (value.match(/^[a-d]\)?$/) || 
+        value.includes('option') || 
+        value.match(/^[1-4]\)?$/) ||
+        value.includes('choice')) {
+      columnMap.options.push(i);
+    }
+    
+    // Correct answer column
+    if (!columnMap.correctAnswer && (
+      value.includes('correct') || 
+      value.includes('answer') ||
+      value.includes('key') ||
+      value === 'ans'
+    )) {
+      columnMap.correctAnswer = i;
+    }
+    
+    // Explanation column
+    if (!columnMap.explanation && (
+      value.includes('explanation') || 
+      value.includes('solution') ||
+      value.includes('reason')
+    )) {
+      columnMap.explanation = i;
+    }
+  }
+  
+  // If no options detected, assume columns 2-5 are options
+  if (columnMap.options.length === 0) {
+    columnMap.options = [2, 3, 4, 5];
+  }
+  
+  // If no correct answer column detected, assume column 6
+  if (!columnMap.correctAnswer) {
+    columnMap.correctAnswer = 6;
+  }
+  
+  return columnMap;
+};
+
+// Helper function to parse a single Excel row
+const parseExcelRow = (row, columnMap, rowNumber) => {
+  // Get question text
+  const questionText = row.getCell(columnMap.question)?.value?.toString()?.trim();
+  if (!questionText) {
+    throw new Error('Missing question text');
+  }
+  
+  // Get options
+  const options = [];
+  for (const colIndex of columnMap.options) {
+    const option = row.getCell(colIndex)?.value?.toString()?.trim();
+    if (option) {
+      options.push(option);
+    }
+  }
+  
+  // Ensure we have at least 2 options
+  if (options.length < 2) {
+    throw new Error('Need at least 2 options');
+  }
+  
+  // Pad with empty options if needed
+  while (options.length < 4) {
+    options.push('');
+  }
+  
+  // Get correct answer
+  const correctAnswer = row.getCell(columnMap.correctAnswer)?.value?.toString()?.trim();
+  if (!correctAnswer) {
+    throw new Error('Missing correct answer');
+  }
+  
+  // Parse correct answer (flexible format)
+  let correctIndex = parseCorrectAnswer(correctAnswer, options.length);
+  if (correctIndex === -1) {
+    throw new Error(`Invalid correct answer format: ${correctAnswer}`);
+  }
+  
+  // Get explanation
+  const explanation = columnMap.explanation ? 
+    row.getCell(columnMap.explanation)?.value?.toString()?.trim() || '' : '';
+  
+  return {
+    id: generateId(),
+    text: questionText,
+    options: options.slice(0, 4), // Ensure exactly 4 options
+    correctAnswer: correctIndex,
+    explanation: explanation,
+    examId: null
+  };
+};
+
+// Helper function to parse correct answer (very flexible)
+const parseCorrectAnswer = (answer, numOptions) => {
+  if (!answer) return -1;
+  
+  const answerStr = answer.toString().toUpperCase().trim();
+  
+  // Direct letter/number mapping
+  const directMap = {
+    'A': 0, '1': 0, 'ONE': 0,
+    'B': 1, '2': 1, 'TWO': 1,
+    'C': 2, '3': 2, 'THREE': 2,
+    'D': 3, '4': 3, 'FOUR': 3
+  };
+  
+  if (directMap.hasOwnProperty(answerStr)) {
+    return directMap[answerStr];
+  }
+  
+  // Try to match with option text
+  const options = Array.from({length: numOptions}, (_, i) => String.fromCharCode(65 + i));
+  for (let i = 0; i < options.length; i++) {
+    if (answerStr.includes(options[i])) {
+      return i;
+    }
+  }
+  
+  // Try numeric parsing
+  const num = parseInt(answerStr);
+  if (!isNaN(num) && num >= 1 && num <= numOptions) {
+    return num - 1;
+  }
+  
+  return -1;
+};
+
+// Enhanced Markdown parsing function with flexible format support
 const parseQuestionsFromMarkdown = (markdown) => {
   const questions = [];
-  const lines = markdown.split('\n');
+  const lines = markdown.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+  
   let currentQuestion = null;
   let currentOptions = [];
   let currentCorrectAnswer = null;
   let currentExplanation = '';
+  let questionNumber = 0;
   
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
+    const line = lines[i];
     
-    // Question line (starts with number or Q)
-    if (/^\d+\.|^Q\d*\.?/i.test(line)) {
-      // Save previous question if exists
+    // Question line patterns (very flexible)
+    const questionPatterns = [
+      /^(\d+)\s*[.)]\s*(.+)$/,                    // 1. Question text
+      /^(\d+)\s*[-]\s*(.+)$/,                     // 1- Question text
+      /^(\d+)\s*[:]\s*(.+)$/,                     // 1: Question text
+      /^[Qq](\d*)\s*[.)]\s*(.+)$/i,              // Q1. Question text
+      /^[Qq](\d*)\s*[-]\s*(.+)$/i,               // Q1- Question text
+      /^[Qq](\d*)\s*[:]\s*(.+)$/i,               // Q1: Question text
+      /^Question\s*(\d*)\s*[.:-]\s*(.+)$/i,      // Question 1: text
+      /^(\d+)\s+(.+)$/,                           // 1 Question text (space separated)
+      /^[Qq](\d*)\s+(.+)$/i,                     // Q1 Question text
+    ];
+    
+    let questionMatch = null;
+    for (const pattern of questionPatterns) {
+      questionMatch = line.match(pattern);
+      if (questionMatch) break;
+    }
+    
+    if (questionMatch) {
+      // Save previous question if valid
       if (currentQuestion && currentOptions.length >= 2 && currentCorrectAnswer !== null) {
-        questions.push({
-          id: generateId(),
-          text: currentQuestion,
-          options: currentOptions,
-          correctAnswer: currentCorrectAnswer,
-          explanation: currentExplanation,
-          examId: null
-        });
+        questions.push(createQuestionObject(currentQuestion, currentOptions, currentCorrectAnswer, currentExplanation));
       }
       
       // Start new question
-      currentQuestion = line.replace(/^\d+\.|^Q\d*\.?\s*/i, '').trim();
+      questionNumber++;
+      currentQuestion = questionMatch[2] || questionMatch[1];
       currentOptions = [];
       currentCorrectAnswer = null;
       currentExplanation = '';
+      continue;
     }
-    // Option line (starts with a), b), c), d) or A), B), C), D)
-    else if (/^[a-dA-D]\)/.test(line)) {
-      const optionText = line.replace(/^[a-dA-D]\)\s*/, '').trim();
-      currentOptions.push(optionText);
+    
+    // Option line patterns (very flexible)
+    const optionPatterns = [
+      /^([a-dA-D])\s*[.)]\s*(.+)$/,              // A) Option text
+      /^([a-dA-D])\s*[-]\s*(.+)$/,               // A- Option text
+      /^([a-dA-D])\s*[:]\s*(.+)$/,               // A: Option text
+      /^([1-4])\s*[.)]\s*(.+)$/,                 // 1) Option text
+      /^([1-4])\s*[-]\s*(.+)$/,                  // 1- Option text
+      /^([1-4])\s*[:]\s*(.+)$/,                  // 1: Option text
+      /^([a-dA-D])\s+(.+)$/,                     // A Option text (space)
+      /^([1-4])\s+(.+)$/,                        // 1 Option text (space)
+      /^Option\s*([a-dA-D1-4])\s*[.:-]\s*(.+)$/i, // Option A: text
+    ];
+    
+    let optionMatch = null;
+    for (const pattern of optionPatterns) {
+      optionMatch = line.match(pattern);
+      if (optionMatch) break;
     }
-    // Correct answer line
-    else if (/^correct|^answer|^ans/i.test(line)) {
-      const answerMatch = line.match(/[a-dA-D]/);
-      if (answerMatch) {
-        const answer = answerMatch[0].toUpperCase();
-        currentCorrectAnswer = answer === 'A' ? 0 : answer === 'B' ? 1 : answer === 'C' ? 2 : 3;
+    
+    if (optionMatch && currentQuestion) {
+      let optionLetter = optionMatch[1].toUpperCase();
+      const optionText = optionMatch[2].trim();
+      
+      // Convert numbers to letters
+      if (optionLetter === '1') optionLetter = 'A';
+      else if (optionLetter === '2') optionLetter = 'B';
+      else if (optionLetter === '3') optionLetter = 'C';
+      else if (optionLetter === '4') optionLetter = 'D';
+      
+      // Find or create option object
+      let optionObj = currentOptions.find(opt => opt.letter === optionLetter);
+      if (!optionObj) {
+        optionObj = { letter: optionLetter, text: optionText };
+        currentOptions.push(optionObj);
+      } else {
+        optionObj.text = optionText;
       }
+      continue;
     }
-    // Explanation line
-    else if (/^explanation|^explain/i.test(line)) {
-      currentExplanation = line.replace(/^explanation|^explain\s*:?\s*/i, '').trim();
+    
+    // Answer/Correct answer patterns (very flexible)
+    const answerPatterns = [
+      /^[Aa]nswer\s*[.:-]?\s*([a-dA-D1-4])/i,
+      /^[Cc]orrect\s*[.:-]?\s*([a-dA-D1-4])/i,
+      /^[Kk]ey\s*[.:-]?\s*([a-dA-D1-4])/i,
+      /^[Ss]olution\s*[.:-]?\s*([a-dA-D1-4])/i,
+      /^[Rr]ight\s*[.:-]?\s*([a-dA-D1-4])/i,
+      /^[Tt]rue\s*[.:-]?\s*([a-dA-D1-4])/i,
+      /^\s*([a-dA-D1-4])\s*$/,                   // Just the letter/number
+      /^[Aa]nswer\s*is\s*([a-dA-D1-4])/i,
+      /^[Cc]orrect\s*answer\s*is\s*([a-dA-D1-4])/i,
+    ];
+    
+    let answerMatch = null;
+    for (const pattern of answerPatterns) {
+      answerMatch = line.match(pattern);
+      if (answerMatch) break;
+    }
+    
+    if (answerMatch && currentQuestion) {
+      let answer = answerMatch[1].toUpperCase();
+      
+      // Convert numbers to letters
+      if (answer === '1') answer = 'A';
+      else if (answer === '2') answer = 'B';
+      else if (answer === '3') answer = 'C';
+      else if (answer === '4') answer = 'D';
+      
+      currentCorrectAnswer = answer;
+      continue;
+    }
+    
+    // Explanation patterns
+    const explanationPatterns = [
+      /^[Ee]xplanation\s*[.:-]?\s*(.+)$/i,
+      /^[Ee]xplain\s*[.:-]?\s*(.+)$/i,
+      /^[Rr]eason\s*[.:-]?\s*(.+)$/i,
+      /^[Ww]hy\s*[.:-]?\s*(.+)$/i,
+      /^[Nn]ote\s*[.:-]?\s*(.+)$/i,
+    ];
+    
+    let explanationMatch = null;
+    for (const pattern of explanationPatterns) {
+      explanationMatch = line.match(pattern);
+      if (explanationMatch) break;
+    }
+    
+    if (explanationMatch && currentQuestion) {
+      currentExplanation = explanationMatch[1].trim();
+      continue;
+    }
+    
+    // If line doesn't match any pattern and we have a current question,
+    // it might be a continuation of the question text or option text
+    if (currentQuestion && line.length > 0) {
+      // If we don't have options yet, append to question
+      if (currentOptions.length === 0) {
+        currentQuestion += ' ' + line;
+      }
+      // If we have options but no answer yet, append to last option
+      else if (currentCorrectAnswer === null && currentOptions.length > 0) {
+        const lastOption = currentOptions[currentOptions.length - 1];
+        lastOption.text += ' ' + line;
+      }
+      // If we have answer but no explanation, append to explanation
+      else if (currentExplanation === '') {
+        currentExplanation = line;
+      }
     }
   }
   
   // Save last question
   if (currentQuestion && currentOptions.length >= 2 && currentCorrectAnswer !== null) {
-    questions.push({
-      id: generateId(),
-      text: currentQuestion,
-      options: currentOptions,
-      correctAnswer: currentCorrectAnswer,
-      explanation: currentExplanation,
-      examId: null
-    });
+    questions.push(createQuestionObject(currentQuestion, currentOptions, currentCorrectAnswer, currentExplanation));
   }
   
+  console.log(`✅ Successfully parsed ${questions.length} questions from Markdown`);
   return questions;
+};
+
+// Helper function to create question object from parsed data
+const createQuestionObject = (questionText, options, correctAnswer, explanation = '') => {
+  if (!questionText || options.length < 2 || !correctAnswer) {
+    return null;
+  }
+  
+  // Sort options by letter (A, B, C, D)
+  const sortedOptions = ['A', 'B', 'C', 'D'].map(letter => {
+    const option = options.find(opt => opt.letter === letter);
+    return option ? option.text : '';
+  });
+  
+  // Ensure we have exactly 4 options
+  while (sortedOptions.length < 4) {
+    sortedOptions.push('');
+  }
+  
+  // Get correct answer index
+  const answerIndex = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 }[correctAnswer];
+  if (answerIndex === undefined) {
+    return null;
+  }
+  
+  return {
+    id: generateId(),
+    text: questionText.trim(),
+    options: sortedOptions.slice(0, 4),
+    correctAnswer: answerIndex,
+    explanation: explanation.trim(),
+    examId: null
+  };
+};
+
+// CSV parsing function for maximum flexibility
+const parseQuestionsFromCSV = (csvText) => {
+  const questions = [];
+  const lines = csvText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+  
+  if (lines.length === 0) {
+    throw new Error('No data found in CSV file');
+  }
+  
+  // Parse CSV with flexible delimiter detection
+  const delimiter = detectCSVDelimiter(lines[0]);
+  console.log('🔍 Detected CSV delimiter:', delimiter);
+  
+  // Parse header row
+  const headerRow = parseCSVLine(lines[0], delimiter);
+  const columnMap = detectCSVColumnStructure(headerRow);
+  
+  console.log('🔍 Detected CSV column structure:', columnMap);
+  
+  // Process data rows
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim()) continue;
+    
+    try {
+      const row = parseCSVLine(line, delimiter);
+      const question = parseCSVRow(row, columnMap, i + 1);
+      if (question) {
+        questions.push(question);
+      }
+    } catch (error) {
+      console.warn(`Error parsing CSV row ${i + 1}:`, error.message);
+      continue;
+    }
+  }
+  
+  if (questions.length === 0) {
+    throw new Error('No valid questions found in CSV file');
+  }
+  
+  console.log(`✅ Successfully parsed ${questions.length} questions from CSV`);
+  return questions;
+};
+
+// Helper function to detect CSV delimiter
+const detectCSVDelimiter = (line) => {
+  const delimiters = [',', ';', '\t', '|'];
+  let maxCount = 0;
+  let detectedDelimiter = ',';
+  
+  for (const delimiter of delimiters) {
+    const count = (line.match(new RegExp('\\' + delimiter, 'g')) || []).length;
+    if (count > maxCount) {
+      maxCount = count;
+      detectedDelimiter = delimiter;
+    }
+  }
+  
+  return detectedDelimiter;
+};
+
+// Helper function to parse a CSV line with proper quote handling
+const parseCSVLine = (line, delimiter) => {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === delimiter && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  
+  result.push(current.trim());
+  return result;
+};
+
+// Helper function to detect CSV column structure
+const detectCSVColumnStructure = (headerRow) => {
+  const columnMap = {
+    question: null,
+    options: [],
+    correctAnswer: null,
+    explanation: null
+  };
+  
+  for (let i = 0; i < headerRow.length; i++) {
+    const header = headerRow[i].toLowerCase().trim();
+    
+    // Question column
+    if (!columnMap.question && (
+      header.includes('question') || 
+      header.includes('q)') ||
+      header === 'q' ||
+      header === '1'
+    )) {
+      columnMap.question = i;
+    }
+    
+    // Option columns
+    if (header.match(/^[a-d]\)?$/) || 
+        header.includes('option') || 
+        header.match(/^[1-4]\)?$/) ||
+        header.includes('choice')) {
+      columnMap.options.push(i);
+    }
+    
+    // Correct answer column
+    if (!columnMap.correctAnswer && (
+      header.includes('correct') || 
+      header.includes('answer') ||
+      header.includes('key') ||
+      header === 'ans'
+    )) {
+      columnMap.correctAnswer = i;
+    }
+    
+    // Explanation column
+    if (!columnMap.explanation && (
+      header.includes('explanation') || 
+      header.includes('solution') ||
+      header.includes('reason')
+    )) {
+      columnMap.explanation = i;
+    }
+  }
+  
+  // If no options detected, assume columns 1-4 are options
+  if (columnMap.options.length === 0) {
+    columnMap.options = [1, 2, 3, 4];
+  }
+  
+  // If no correct answer column detected, assume column 5
+  if (!columnMap.correctAnswer) {
+    columnMap.correctAnswer = 5;
+  }
+  
+  return columnMap;
+};
+
+// Helper function to parse a single CSV row
+const parseCSVRow = (row, columnMap, rowNumber) => {
+  // Get question text
+  const questionText = row[columnMap.question]?.trim();
+  if (!questionText) {
+    throw new Error('Missing question text');
+  }
+  
+  // Get options
+  const options = [];
+  for (const colIndex of columnMap.options) {
+    const option = row[colIndex]?.trim();
+    if (option) {
+      options.push(option);
+    }
+  }
+  
+  // Ensure we have at least 2 options
+  if (options.length < 2) {
+    throw new Error('Need at least 2 options');
+  }
+  
+  // Pad with empty options if needed
+  while (options.length < 4) {
+    options.push('');
+  }
+  
+  // Get correct answer
+  const correctAnswer = row[columnMap.correctAnswer]?.trim();
+  if (!correctAnswer) {
+    throw new Error('Missing correct answer');
+  }
+  
+  // Parse correct answer (flexible format)
+  let correctIndex = parseCorrectAnswer(correctAnswer, options.length);
+  if (correctIndex === -1) {
+    throw new Error(`Invalid correct answer format: ${correctAnswer}`);
+  }
+  
+  // Get explanation
+  const explanation = columnMap.explanation ? 
+    row[columnMap.explanation]?.trim() || '' : '';
+  
+  return {
+    id: generateId(),
+    text: questionText,
+    options: options.slice(0, 4), // Ensure exactly 4 options
+    correctAnswer: correctIndex,
+    explanation: explanation,
+    examId: null
+  };
 };
 
 // eslint-disable-next-line no-unused-vars
@@ -330,8 +844,28 @@ const CBTAdminPanel = ({ user, institution, onLogout }) => {
         }
         setImportError(`Successfully imported ${parsed.length} questions!`);
         setTimeout(() => setImportError(""), 3000);
+      } else if (fileExtension === 'csv') {
+        console.log('🔍 Starting CSV import for file:', file.name);
+        const text = await file.text();
+        const parsed = parseQuestionsFromCSV(text);
+        console.log('🔍 Parsed questions:', parsed);
+        
+        if (parsed.length === 0) {
+          throw new Error("No questions found. Please check the CSV format.");
+        }
+        
+        setQuestions(parsed);
+        if (selectedExam) {
+          console.log('🔍 Saving questions for exam:', selectedExam.id);
+          saveQuestionsForExam(selectedExam.id, parsed);
+          updateExamQuestionCount(selectedExam.id, parsed.length);
+        } else {
+          console.warn('⚠️ No exam selected - questions imported but not saved to exam');
+        }
+        setImportError(`Successfully imported ${parsed.length} questions!`);
+        setTimeout(() => setImportError(""), 3000);
       } else {
-        throw new Error("Unsupported file format. Please upload a .docx or .xlsx file.");
+        throw new Error("Unsupported file format. Please upload a .docx, .xlsx, or .csv file.");
       }
     } catch (e) {
       console.error("Upload error:", e);
@@ -990,14 +1524,14 @@ function QuestionsTab({ selectedExam, questions, setQuestions, onFileUpload, imp
             <div className="text-4xl mb-3">📁</div>
             <p className="text-lg font-semibold text-gray-700 mb-2">Upload Your Questions</p>
             <p className="text-sm text-gray-600 mb-4">
-              Drag and drop a .docx or .xlsx file here, or click to browse
+              Drag and drop a .docx, .xlsx, or .csv file here, or click to browse
             </p>
             <p className="text-xs text-gray-500 mb-4">
-              Supported formats: Excel (.xlsx) or Word (.docx) | Max file size: 10MB
+              Supported formats: Excel (.xlsx), Word (.docx), or CSV (.csv) | Max file size: 10MB
             </p>
             <input 
               type="file" 
-              accept=".docx,.xlsx" 
+              accept=".docx,.xlsx,.csv" 
               onChange={e => { if (e.target.files && e.target.files[0]) onFileUpload(e.target.files[0]); }}
               className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
             />
