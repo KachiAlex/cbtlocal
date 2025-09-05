@@ -273,7 +273,7 @@ const CBTAdminPanel = ({ user, institution, onLogout }) => {
           ...examData,
           createdAt: new Date().toISOString(),
           questionCount: 0,
-          institutionSlug: institution.slug
+          institutionSlug: institution?.slug || 'default'
         };
         updatedExams = [...exams, newExam];
         setSelectedExam(newExam);
