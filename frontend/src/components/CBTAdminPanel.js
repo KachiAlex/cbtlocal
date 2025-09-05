@@ -370,20 +370,34 @@ const CBTAdminPanel = ({ user, institution, onLogout }) => {
 
         {/* Tab Navigation */}
         <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl mb-8">
-          {[
-            { id: "exams", label: "📋 Exam Management", icon: "📋", adminOnly: false },
-            { id: "create-exam", label: "➕ Create Exam", icon: "➕", adminOnly: true },
-            { id: "questions", label: "❓ Questions", icon: "❓", adminOnly: false },
-            { id: "results", label: "📊 Results", icon: "📊", adminOnly: false },
-            { id: "students", label: "👥 Students", icon: "👥", adminOnly: true },
-            { id: "settings", label: "⚙️ Settings", icon: "⚙️", adminOnly: true },
-            { id: "advanced-exams", label: "🔧 Advanced Exams", icon: "🔧", adminOnly: true }
-          ].filter(tab => {
-            const isAdmin = user.role === 'admin' || user.role === 'super_admin' || user.role === 'managed_admin';
-            const shouldShow = !tab.adminOnly || isAdmin;
-            console.log(`Tab ${tab.id}: adminOnly=${tab.adminOnly}, user.role=${user.role}, isAdmin=${isAdmin}, shouldShow=${shouldShow}`);
-            return shouldShow;
-          }).map(tab => (
+          {(() => {
+            const allTabs = [
+              { id: "exams", label: "📋 Exam Management", icon: "📋", adminOnly: false },
+              { id: "create-exam", label: "➕ Create Exam", icon: "➕", adminOnly: true },
+              { id: "questions", label: "❓ Questions", icon: "❓", adminOnly: false },
+              { id: "results", label: "📊 Results", icon: "📊", adminOnly: false },
+              { id: "students", label: "👥 Students", icon: "👥", adminOnly: true },
+              { id: "settings", label: "⚙️ Settings", icon: "⚙️", adminOnly: true },
+              { id: "advanced-exams", label: "🔧 Advanced Exams", icon: "🔧", adminOnly: true }
+            ];
+            
+            console.log('🔍 DEBUG: User object:', user);
+            console.log('🔍 DEBUG: User role:', user?.role);
+            console.log('🔍 DEBUG: All tabs:', allTabs.map(t => ({ id: t.id, adminOnly: t.adminOnly })));
+            
+            const isAdmin = user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'managed_admin';
+            console.log('🔍 DEBUG: Is admin?', isAdmin);
+            
+            const visibleTabs = allTabs.filter(tab => {
+              const shouldShow = !tab.adminOnly || isAdmin;
+              console.log(`🔍 Tab ${tab.id}: adminOnly=${tab.adminOnly}, shouldShow=${shouldShow}`);
+              return shouldShow;
+            });
+            
+            console.log('🔍 DEBUG: Visible tabs:', visibleTabs.map(t => t.id));
+            
+            return visibleTabs;
+          })().map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
