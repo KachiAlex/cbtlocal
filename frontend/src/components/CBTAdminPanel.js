@@ -885,8 +885,11 @@ const CBTAdminPanel = ({ user, institution, onLogout }) => {
 
   const saveQuestionsForExam = async (examId, questionsData) => {
     try {
-      // Save questions with exam ID
+      // Save questions with exam ID to exam-specific localStorage key
       const questionsWithExamId = questionsData.map(q => ({ ...q, examId }));
+      localStorage.setItem(`cbt_questions_${examId}`, JSON.stringify(questionsWithExamId));
+      
+      // Also save to global questions array for dataService compatibility
       await dataService.saveQuestions(questionsWithExamId);
       
       // Also save exam info for student access
