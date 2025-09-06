@@ -2170,6 +2170,225 @@ function SettingsTab({ onBackToExams, institution, user }) {
   );
 }
 
+// Create Exam Tab Component
+function CreateExamTab({ exams, onCreateExam, onActivateExam, onDeleteExam, onSelectExam, selectedExam, user, institution, onViewQuestions }) {
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    duration: 60,
+    passingScore: 50,
+    startDate: "",
+    endDate: "",
+    isActive: false
+  });
+
+  const handleCreateExam = async (e) => {
+    e.preventDefault();
+    if (!formData.title.trim()) return;
+    
+    const newExam = {
+      id: generateId(),
+      title: formData.title,
+      description: formData.description,
+      duration: parseInt(formData.duration),
+      passingScore: parseInt(formData.passingScore),
+      startDate: formData.startDate,
+      endDate: formData.endDate,
+      isActive: formData.isActive,
+      createdAt: new Date().toISOString(),
+      createdBy: user.username
+    };
+    
+    await onCreateExam(newExam);
+    setShowCreateForm(false);
+    setFormData({
+      title: "",
+      description: "",
+      duration: 60,
+      passingScore: 50,
+      startDate: "",
+      endDate: "",
+      isActive: false
+    });
+  };
+
+  return (
+    <div className="bg-white rounded-xl border p-6">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h3 className="text-xl font-bold text-gray-800">Create & Manage Exams</h3>
+          <p className="text-gray-600">Create new exams and manage existing ones</p>
+        </div>
+        <button
+          onClick={() => setShowCreateForm(true)}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+        >
+          ➕ Create New Exam
+        </button>
+      </div>
+
+      {/* Create Exam Form */}
+      {showCreateForm && (
+        <div className="mb-6 p-6 bg-gray-50 rounded-lg border">
+          <h4 className="text-lg font-semibold mb-4">Create New Exam</h4>
+          <form onSubmit={handleCreateExam} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Exam Title *</label>
+                <input
+                  type="text"
+                  value={formData.title}
+                  onChange={(e) => setFormData({...formData, title: e.target.value})}
+                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Duration (minutes) *</label>
+                <input
+                  type="number"
+                  value={formData.duration}
+                  onChange={(e) => setFormData({...formData, duration: e.target.value})}
+                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  min="1"
+                  required
+                />
+              </div>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <textarea
+                value={formData.description}
+                onChange={(e) => setFormData({...formData, description: e.target.value})}
+                className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                rows="3"
+              />
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Passing Score (%)</label>
+                <input
+                  type="number"
+                  value={formData.passingScore}
+                  onChange={(e) => setFormData({...formData, passingScore: e.target.value})}
+                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  min="0"
+                  max="100"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                <input
+                  type="datetime-local"
+                  value={formData.startDate}
+                  onChange={(e) => setFormData({...formData, startDate: e.target.value})}
+                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                <input
+                  type="datetime-local"
+                  value={formData.endDate}
+                  onChange={(e) => setFormData({...formData, endDate: e.target.value})}
+                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="isActive"
+                checked={formData.isActive}
+                onChange={(e) => setFormData({...formData, isActive: e.target.checked})}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <label htmlFor="isActive" className="text-sm font-medium text-gray-700">
+                Activate exam immediately
+              </label>
+            </div>
+            
+            <div className="flex gap-3 pt-4">
+              <button
+                type="button"
+                onClick={() => setShowCreateForm(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Create Exam
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Existing Exams List */}
+      <div>
+        <h4 className="text-lg font-semibold mb-4">Existing Exams</h4>
+        {exams.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <p>No exams created yet.</p>
+            <p className="text-sm mt-2">Create your first exam using the button above.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {exams.map(exam => (
+              <div key={exam.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <h5 className="font-semibold text-gray-800">{exam.title}</h5>
+                    <p className="text-sm text-gray-600 mt-1">{exam.description}</p>
+                    <div className="flex gap-4 mt-2 text-xs text-gray-500">
+                      <span>Duration: {exam.duration} min</span>
+                      <span>Passing: {exam.passingScore}%</span>
+                      <span className={`px-2 py-1 rounded ${exam.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
+                        {exam.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 ml-4">
+                    <button
+                      onClick={() => onSelectExam(exam)}
+                      className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                    >
+                      View
+                    </button>
+                    <button
+                      onClick={() => onActivateExam(exam.id)}
+                      className={`px-3 py-1 text-sm rounded ${
+                        exam.isActive 
+                          ? 'bg-red-100 text-red-700 hover:bg-red-200' 
+                          : 'bg-green-100 text-green-700 hover:bg-green-200'
+                      }`}
+                    >
+                      {exam.isActive ? 'Deactivate' : 'Activate'}
+                    </button>
+                    <button
+                      onClick={() => onDeleteExam(exam.id)}
+                      className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Modal Components
 function CreateExamModal({ onClose, onCreate }) {
   const [formData, setFormData] = useState({
