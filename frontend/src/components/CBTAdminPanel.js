@@ -838,7 +838,7 @@ const CBTAdminPanel = ({ user, institution, onLogout }) => {
           saveQuestionsForExam(selectedExam.id, parsed);
           updateExamQuestionCount(selectedExam.id, parsed.length);
         } else {
-          console.warn('âš ï¸ No exam selected - questions imported but not saved to exam');
+          console.warn('⚠️ No exam selected - questions imported but not saved to exam');
         }
         setImportError(`Successfully imported ${parsed.length} questions!`);
         setTimeout(() => setImportError(""), 3000);
@@ -858,7 +858,7 @@ const CBTAdminPanel = ({ user, institution, onLogout }) => {
           saveQuestionsForExam(selectedExam.id, parsed);
           updateExamQuestionCount(selectedExam.id, parsed.length);
       } else {
-          console.warn('âš ï¸ No exam selected - questions imported but not saved to exam');
+          console.warn('⚠️ No exam selected - questions imported but not saved to exam');
         }
         setImportError(`Successfully imported ${parsed.length} questions!`);
         setTimeout(() => setImportError(""), 3000);
@@ -1080,8 +1080,8 @@ const CBTAdminPanel = ({ user, institution, onLogout }) => {
         <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl mb-8">
           {(() => {
             const allTabs = [
-            { id: "exams", label: "ðŸ“‹ Exam Management", icon: "ðŸ“‹", adminOnly: false },
-              { id: "create-exam", label: "âž• Create Exam", icon: "âž•", adminOnly: true },
+            { id: "exams", label: "📋 Exam Management", icon: "📋", adminOnly: false },
+              { id: "create-exam", label: "➕ Create Exam", icon: "➕", adminOnly: true },
             { id: "questions", label: "â“ Questions", icon: "â“", adminOnly: false },
             { id: "results", label: "ðŸ“Š Results", icon: "ðŸ“Š", adminOnly: false },
             { id: "students", label: "ðŸ‘¥ Students", icon: "ðŸ‘¥", adminOnly: true },
@@ -1455,7 +1455,7 @@ function QuestionsTab({ selectedExam, questions, setQuestions, onFileUpload, imp
               const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
               saveAs(blob, `CBT_Questions_Template_${selectedExam.title.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`);
             }} className="px-4 py-2 text-sm rounded-lg bg-green-600 text-white hover:bg-green-700 flex items-center gap-2">
-              ðŸ“Š Download Excel Template
+              📊 Download Excel Template
             </button>
             
             <button onClick={async () => {
@@ -1500,13 +1500,13 @@ function QuestionsTab({ selectedExam, questions, setQuestions, onFileUpload, imp
               const blob = await Packer.toBlob(doc);
               saveAs(blob, `CBT_Questions_Template_${selectedExam.title.replace(/[^a-zA-Z0-9]/g, '_')}.docx`);
             }} className="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-2">
-              ðŸ“„ Download Word Template
+              📄 Download Word Template
             </button>
           </div>
           
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
             <div className="flex items-start gap-3">
-              <span className="text-yellow-600 text-xl">âš ï¸</span>
+              <span className="text-yellow-600 text-xl">⚠️</span>
               <div>
                 <h4 className="font-semibold text-yellow-800 mb-1">Randomization Notice</h4>
                 <p className="text-sm text-yellow-700">
